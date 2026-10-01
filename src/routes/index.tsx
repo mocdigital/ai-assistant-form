@@ -91,13 +91,13 @@ function Index() {
     <div className="min-h-screen bg-background">
       <header className="bg-primary text-primary-foreground">
         <div className="mx-auto max-w-3xl px-6 py-14">
-          <p className="text-sm uppercase tracking-[0.25em] text-accent">Ministry of Commerce</p>
+          <p className="text-sm uppercase tracking-[0.25em] text-accent">AI Assistant Bot Training</p>
           <h1 className="mt-3 font-display text-4xl md:text-5xl leading-tight">Executive Assistant Personalization Questionnaire</h1>
           <p className="mt-4 max-w-xl opacity-85">
             There are no right or wrong answers — just how you actually work. Type, tick, or tap
             <Mic className="mx-1 inline h-4 w-4" /> to speak. Use “Explain instead” on any question to simply talk it through.
           </p>
-          <p className="mt-3 text-sm opacity-70">Your answers save automatically on this device.</p>
+          <p className="mt-3 text-sm opacity-70">Submit to save your answers.</p>
         </div>
       </header>
 
