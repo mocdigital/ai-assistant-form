@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Mic, Download, RotateCcw } from "lucide-react";
+import { Mic, Send, RotateCcw, CheckCircle2, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { sections, type Question } from "@/lib/questions";
 import { VoiceField } from "@/components/VoiceField";
 
@@ -25,6 +26,9 @@ const KEY = "ea-questionnaire-v1";
 function Index() {
   const [answers, setAnswers] = useState<Answers>({});
   const [loaded, setLoaded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     try { setAnswers(JSON.parse(localStorage.getItem(KEY) || "{}")); } catch {}
@@ -40,7 +44,7 @@ function Index() {
     (a) => a.text || a.choices?.length || a.other || a.explain || a.rating,
   ).length;
 
-  const exportText = () => {
+  const buildText = () => {
     let out = "EXECUTIVE ASSISTANT PERSONALIZATION QUESTIONNAIRE\n\n";
     sections.forEach((s, i) => {
       out += `SECTION ${i + 1} — ${s.title.toUpperCase()}\n\n`;
@@ -56,11 +60,32 @@ function Index() {
         out += "\n";
       });
     });
-    const url = URL.createObjectURL(new Blob([out], { type: "text/plain" }));
-    const el = document.createElement("a");
-    el.href = url; el.download = "ea-questionnaire-answers.txt"; el.click();
-    URL.revokeObjectURL(url);
+    return out;
   };
+
+  const submit = async () => {
+    setSubmitting(true); setSubmitError("");
+    const { error } = await supabase.from("questionnaire_submissions").insert({
+      respondent: answers.q1?.text || null,
+      answers: answers as any,
+      answers_text: buildText(),
+    });
+    setSubmitting(false);
+    if (error) setSubmitError("Couldn't submit right now. Please check your connection and try again.");
+    else { setSubmitted(true); localStorage.removeItem(KEY); }
+  };
+
+  if (submitted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="max-w-md text-center">
+          <CheckCircle2 className="mx-auto h-14 w-14 text-primary" />
+          <h1 className="mt-4 font-display text-3xl text-foreground">Thank you</h1>
+          <p className="mt-2 text-muted-foreground">Your answers have been submitted successfully.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -99,8 +124,8 @@ function Index() {
         ))}
 
         <div className="flex flex-wrap gap-3 border-t border-border pt-8">
-          <button onClick={exportText} className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3 font-medium text-primary-foreground hover:opacity-90">
-            <Download className="h-4 w-4" /> Download answers
+          <button onClick={submit} disabled={submitting || done === 0} className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Submit questionnaire
           </button>
           <button
             onClick={() => { if (confirm("Clear all answers?")) setAnswers({}); }}
@@ -109,6 +134,7 @@ function Index() {
             <RotateCcw className="h-4 w-4" /> Start over
           </button>
         </div>
+        {submitError && <p className="text-sm text-destructive">{submitError}</p>}
       </main>
     </div>
   );
