@@ -1,7 +1,7 @@
 // Sends a recorded clip to our transcription endpoint and returns the full text.
 export async function transcribeBlob(blob: Blob, onPartial?: (t: string) => void): Promise<string> {
   const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
-  const type = (blob.type || "audio/webm").split(";")[0].replace(/^video\//, "audio/");
+  const type = ((blob.type || "audio/webm").split(";")[0] ?? "audio/webm").replace(/^video\//, "audio/");
   const fd = new FormData();
   fd.append("file", new File([blob], `answer.${ext}`, { type }));
   const res = await fetch("/api/transcribe", { method: "POST", body: fd });
