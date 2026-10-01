@@ -66,7 +66,7 @@ function Index() {
   const submit = async () => {
     setSubmitting(true); setSubmitError("");
     const { error } = await supabase.from("questionnaire_submissions").insert({
-      respondent: answers.q1?.text || null,
+      respondent: answers['q1']?.text || null,
       answers: answers as any,
       answers_text: buildText(),
     });
