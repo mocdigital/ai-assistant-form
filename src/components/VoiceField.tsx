@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Mic, Square } from "lucide-react";
+import { Loader2, Mic, RefreshCw, Square } from "lucide-react";
 import { transcribeBlob } from "@/lib/transcribe-client";
 
 type Props = {
@@ -17,9 +17,11 @@ export function VoiceField({ value, onChange, multiline, placeholder, autoStart 
   const [seconds, setSeconds] = useState(0);
   const [partial, setPartial] = useState("");
   const [error, setError] = useState("");
+  const [canRetry, setCanRetry] = useState(false);
   const recRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const blobRef = useRef<Blob | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -32,8 +34,44 @@ export function VoiceField({ value, onChange, multiline, placeholder, autoStart 
     streamRef.current = null;
   };
 
+  const transcribe = async (blob: Blob) => {
+    setStatus("transcribing");
+    try {
+      const text = await transcribeBlob(blob, setPartial);
+      if (text) {
+        const cur = valueRef.current;
+        onChangeRef.current((cur ? cur.trimEnd() + " " : "") + text);
+        blobRef.current = null;
+        setCanRetry(false);
+      } else {
+        setCanRetry(true);
+        setError("No speech was detected. Tap the refresh button to try again.");
+      }
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : "";
+      setError(
+        /load failed|failed to fetch|network/i.test(raw)
+          ? "Couldn't reach the transcription service. Tap the refresh button to try again."
+          : raw || "Transcription failed. Tap the refresh button to try again.",
+      );
+      setCanRetry(true);
+    } finally {
+      setPartial("");
+      setStatus("idle");
+    }
+  };
+
+  const retry = () => {
+    if (blobRef.current) {
+      setError("");
+      transcribe(blobRef.current);
+    }
+  };
+
   const start = async () => {
     setError("");
+    setCanRetry(false);
+    blobRef.current = null;
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setError("Voice recording isn't supported in this browser.");
       return;
@@ -49,19 +87,8 @@ export function VoiceField({ value, onChange, multiline, placeholder, autoStart 
         cleanup();
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
         if (blob.size < 1000) { setStatus("idle"); setError("Recording was too short — please try again."); return; }
-        setStatus("transcribing");
-        try {
-          const text = await transcribeBlob(blob, setPartial);
-          if (text) {
-            const cur = valueRef.current;
-            onChangeRef.current((cur ? cur.trimEnd() + " " : "") + text);
-          } else setError("No speech was detected. Please try again.");
-        } catch (e) {
-          setError(e instanceof Error ? e.message : "Transcription failed.");
-        } finally {
-          setPartial("");
-          setStatus("idle");
-        }
+        blobRef.current = blob;
+        await transcribe(blob);
       };
       recRef.current = rec;
       rec.start(1000);
@@ -103,13 +130,13 @@ export function VoiceField({ value, onChange, multiline, placeholder, autoStart 
         <button
           type="button"
           disabled={status === "transcribing"}
-          onClick={status === "recording" ? stop : start}
-          aria-label={status === "recording" ? "Stop and transcribe" : "Record your answer"}
+          onClick={status === "recording" ? stop : status === "idle" && canRetry ? retry : start}
+          aria-label={status === "recording" ? "Stop and transcribe" : canRetry ? "Retry transcription" : "Record your answer"}
           className={`absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full transition disabled:opacity-60 ${
             status === "recording" ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-primary text-primary-foreground hover:opacity-90"
           }`}
         >
-          {status === "recording" ? <Square className="h-4 w-4" /> : status === "transcribing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+          {status === "recording" ? <Square className="h-4 w-4" /> : status === "transcribing" ? <Loader2 className="h-4 w-4 animate-spin" /> : canRetry ? <RefreshCw className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
         </button>
       </div>
       {status === "recording" && (
