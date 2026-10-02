@@ -4,7 +4,9 @@ export async function transcribeBlob(blob: Blob, onPartial?: (t: string) => void
   const type = ((blob.type || "audio/webm").split(";")[0] ?? "audio/webm").replace(/^video\//, "audio/");
   const fd = new FormData();
   fd.append("file", new File([blob], `answer.${ext}`, { type }));
-  const res = await fetch("/api/transcribe", { method: "POST", body: fd });
+  // On Vercel, VITE_TRANSCRIBE_API_URL points at the published Lovable app (e.g. https://your-app.lovable.app).
+  const base = ((import.meta.env['VITE_TRANSCRIBE_API_URL'] as string | undefined) || "").replace(/\/$/, "");
+  const res = await fetch(`${base}/api/public/transcribe`, { method: "POST", body: fd });
 
   if (!res.ok) {
     let msg = "Couldn't transcribe the recording. Please try again.";
